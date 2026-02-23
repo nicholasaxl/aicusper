@@ -147,7 +147,9 @@ class ProductController extends Controller
      */
     public function update(Request $request, $inventory_id)
     {
+
         $request->validate([
+            'outlet_id'   => 'required|integer',
             'item_name'   => 'required|string|max:255',
             'price'       => 'required|numeric|min:0',
             'description' => 'nullable|string',
@@ -210,7 +212,6 @@ class ProductController extends Controller
 
         } catch (\Throwable $e) {
             DB::rollBack();
-
             // cleanup uploaded image if DB failed
             if (isset($newImagePath) && $newImagePath !== $oldImagePath) {
                 Storage::disk('public')->delete($newImagePath);

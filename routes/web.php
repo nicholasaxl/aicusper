@@ -2,10 +2,28 @@
 
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\RecommendationController;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Http;
 
-Route::get('/', function () {
+/* Route::get('/', function () {
     return view('welcome');
+}); */
+
+Route::get('/', [RecommendationController::class, 'index']);
+Route::post('/recommend', [RecommendationController::class, 'recommend'])->name('recommend');
+Route::get('/api/latest-result', function () {
+    try {
+        $response = Http::get('http://127.0.0.1:5000/latest_result.json');
+
+        if ($response->failed()) {
+            return response()->json(['error' => 'API request failed.'], 500);
+        }
+
+        return response()->json($response->json());
+    } catch (\Exception $e) {
+        return response()->json(['error' => 'Unexpected error: ' . $e->getMessage()], 500);
+    }
 });
 
 Route::get('/dashboard', function () {
