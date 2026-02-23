@@ -116,6 +116,14 @@
   </button>
 
   <script>
+    function resetButton() {
+      captureBtn.textContent = "📸 Capture Recommendation";
+      captureBtn.disabled = false;
+      waitingForResult = false;
+    }
+    function showError(message) {
+      document.getElementById("flavorText").textContent = "⚠ " + message;
+    }
     let waitingForResult = false; // 🔒 lock for capture-result cycle
     const previewVideo = document.getElementById('previewVideo');
     const canvas = document.createElement('canvas'); // hidden canvas for capture
@@ -152,41 +160,62 @@
         console.log("⏸ Skipping capture, still running...");
         return;
       }
-      captureRunning = true; // lock set
 
-      const ctx = canvas.getContext('2d');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      ctx.drawImage(video, 0, 0);
+      captureRunning = true;
 
-      canvas.toBlob(async (blob) => {
-        if (!blob) {
-          captureRunning = false;
-          return;
-        }
+      try {
+        // Draw frame to hidden canvas
+        const ctx = canvas.getContext('2d');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+
+        // Convert to blob (promise version)
+        const blob = await new Promise((resolve, reject) => {
+          canvas.toBlob(b => {
+            if (b) resolve(b);
+            else reject(new Error("Failed to capture image"));
+          }, "image/jpeg");
+        });
+
+        // Get location (promise version)
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject);
+        });
 
         let formData = new FormData();
         formData.append("image", blob, "capture.jpg");
         formData.append("outlet_id", OUTLET_ID);
+        formData.append("latitude", position.coords.latitude);
+        formData.append("longitude", position.coords.longitude);
 
-        navigator.geolocation.getCurrentPosition(async (pos) => {
-          formData.append("latitude", pos.coords.latitude);
-          formData.append("longitude", pos.coords.longitude);
+        console.log("📤 Sending frame to Flask...");
 
-          try {
-            console.log("📤 Sending frame to Flask...");
-            await fetch(API_RECOMMEND, { method: "POST", body: formData });
-          } catch (e) {
-            console.error("❌ Request failed:", e);
-          } finally {
-            captureRunning = false; // unlock when done
-          }
-        }, (err) => {
-          console.warn("⚠️ Location denied:", err.message);
-          captureRunning = false;
+        const res = await fetch(API_RECOMMEND, {
+          method: "POST",
+          body: formData
         });
-      }, "image/jpeg");
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || "Server error");
+        }
+
+        // SUCCESS → wait for SSE to update UI
+
+      } catch (err) {
+        console.error("❌ Capture error:", err);
+
+        showError(err.message);
+        resetButton();          // 🔥 stop loading if error
+        waitingForResult = false;
+
+      } finally {
+        captureRunning = false; // always unlock
+      }
     }
+
     const captureBtn = document.getElementById("captureBtn");
 
     captureBtn.addEventListener("click", async () => {
@@ -198,6 +227,12 @@
       captureBtn.textContent = "⏳ Processing...";
 
       await captureAndSend();
+      setTimeout(() => {
+        if (waitingForResult) {
+          showError("Server timeout. Please try again.");
+          resetButton();
+        }
+      }, 15000); // 15 seconds
     });
 
     // Poll latest JSON and update UI
