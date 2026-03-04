@@ -5,7 +5,8 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RecommendationController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Http;
-
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 /* Route::get('/', function () {
     return view('welcome');
 }); */
@@ -42,5 +43,24 @@ Route::middleware('auth')->group(function () {
     Route::post('/product/{id}', [ProductController::class, 'update'])->name('product.update');
 
 });
-
+Route::get('/remote', function () {
+    return view('remote');
+});
 require __DIR__.'/auth.php';
+
+
+// Cashier side trigger button
+Route::post('/trigger-capture', function () {
+    Cache::put('capture_trigger', true, 30); // valid for 30 sec
+    return response()->json(['status' => 'triggered']);
+});
+
+// Customer side read cache
+Route::get('/check-trigger', function () {
+    if (Cache::get('capture_trigger')) {
+        Cache::forget('capture_trigger'); // reset after read
+        return response()->json(['trigger' => true]);
+    }
+
+    return response()->json(['trigger' => false]);
+});
