@@ -30,7 +30,6 @@
     }
     .meta h4 { margin: 6px 0; }
 
-    /* snapshot preview top-left */
     .snapshot {
       position: fixed;
       top: 16px;
@@ -42,7 +41,7 @@
     }
     .snapshot video {
       display: block;
-      width: 240px;   /* small window */
+      width: 240px;
       height: 180px;
     }
 
@@ -57,6 +56,7 @@
       margin-top: 20px;
     }
     .card img { width: 100%; display: block; }
+
     .flavor {
       background: #fff5f5;
       border-top: 4px solid #f44336;
@@ -65,6 +65,7 @@
       line-height: 1.6;
       color: #444;
     }
+
     .capture-btn {
       margin-top: auto;
       margin-bottom: 40px;
@@ -80,15 +81,8 @@
       transition: 0.2s ease;
     }
 
-    .capture-btn:hover {
-      background: #d32f2f;
-      transform: translateY(-2px);
-    }
-
-    .capture-btn:disabled {
-      background: #aaa;
-      cursor: not-allowed;
-}
+    .capture-btn:hover { background: #d32f2f; transform: translateY(-2px); }
+    .capture-btn:disabled { background: #aaa; cursor: not-allowed; }
   </style>
 </head>
 <body>
@@ -102,7 +96,6 @@
     <h4>Lon: <span id="lon">—</span></h4>
   </div>
 
-  <!-- Snapshot preview -->
   <div class="snapshot">
     <video id="previewVideo" autoplay muted playsinline></video>
   </div>
@@ -111,165 +104,145 @@
     <img id="foodImage" src="" alt="Food Image">
     <div class="flavor" id="flavorText">—</div>
   </div>
+
   <button id="captureBtn" class="capture-btn">
     Capture Recommendation
   </button>
 
+  @vite('resources/js/app.js')
+
 <script>
-  let waitingForResult = false;
-  let captureRunning = false;
+let waitingForResult = false;
+let captureRunning = false;
 
-  const previewVideo = document.getElementById('previewVideo');
-  const canvas = document.createElement('canvas');
-  const video = previewVideo;
-  const captureBtn = document.getElementById("captureBtn");
+const previewVideo = document.getElementById('previewVideo');
+const canvas = document.createElement('canvas');
+const video = previewVideo;
+const captureBtn = document.getElementById("captureBtn");
 
-  const API_RECOMMEND = "http://127.0.0.1:5000/recommend";
-  const OUTLET_ID = 82;
+const API_RECOMMEND = "http://127.0.0.1:5000/recommend";
+const OUTLET_ID = 82;
 
-  function resetButton() {
-    captureBtn.textContent = "📸 Capture Recommendation";
-    captureBtn.disabled = false;
-    waitingForResult = false;
-  }
+function resetButton() {
+  captureBtn.textContent = "📸 Capture Recommendation";
+  captureBtn.disabled = false;
+  waitingForResult = false;
+}
 
-  function showError(message) {
-    document.getElementById("flavorText").textContent = "⚠ " + message;
-  }
+function showError(message) {
+  document.getElementById("flavorText").textContent = "⚠ " + message;
+}
 
-  // 🎥 Start camera
-  navigator.mediaDevices.getUserMedia({ video: true })
-    .then(stream => {
-      previewVideo.srcObject = stream;
-      video.srcObject = stream;
-    })
-    .catch(err => alert("Camera access denied: " + err));
+// Camera
+navigator.mediaDevices.getUserMedia({ video: true })
+  .then(stream => {
+    previewVideo.srcObject = stream;
+    video.srcObject = stream;
+  })
+  .catch(err => alert("Camera access denied: " + err));
 
-  // 📸 Capture and send to Flask
-  async function captureAndSend() {
+// Capture and send
+async function captureAndSend() {
+  if (captureRunning) return;
+  captureRunning = true;
 
-    if (captureRunning) return;
-    captureRunning = true;
+  try {
+    const ctx = canvas.getContext('2d');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
 
-    try {
-      const ctx = canvas.getContext('2d');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      ctx.drawImage(video, 0, 0);
+    const blob = await new Promise((resolve, reject) => {
+      canvas.toBlob(b => {
+        if (b) resolve(b);
+        else reject(new Error("Failed to capture image"));
+      }, "image/jpeg");
+    });
 
-      const blob = await new Promise((resolve, reject) => {
-        canvas.toBlob(b => {
-          if (b) resolve(b);
-          else reject(new Error("Failed to capture image"));
-        }, "image/jpeg");
-      });
+    const position = await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject);
+    });
 
-      const position = await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject);
-      });
+    let formData = new FormData();
+    formData.append("image", blob, "capture.jpg");
+    formData.append("outlet_id", OUTLET_ID);
+    formData.append("latitude", position.coords.latitude);
+    formData.append("longitude", position.coords.longitude);
 
-      let formData = new FormData();
-      formData.append("image", blob, "capture.jpg");
-      formData.append("outlet_id", OUTLET_ID);
-      formData.append("latitude", position.coords.latitude);
-      formData.append("longitude", position.coords.longitude);
+    console.log("📤 Sending frame to Flask...");
 
-      console.log("📤 Sending frame to Flask...");
+    const res = await fetch(API_RECOMMEND, {
+      method: "POST",
+      body: formData
+    });
 
-      const res = await fetch(API_RECOMMEND, {
-        method: "POST",
-        body: formData
-      });
+    const data = await res.json();
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Server error");
-      }
-
-      // Wait for SSE to update UI
-
-    } catch (err) {
-      console.error("❌ Capture error:", err);
-      showError(err.message);
-      resetButton();
-    } finally {
-      captureRunning = false;
-    }
-  }
-
-  // 🖱 Manual Button Click
-  captureBtn.addEventListener("click", async () => {
-
-    if (waitingForResult) return;
-
-    waitingForResult = true;
-    captureBtn.disabled = true;
-    captureBtn.textContent = "⏳ Processing...";
-
-    await captureAndSend();
-
-    // Safety timeout (15 sec)
-    setTimeout(() => {
-      if (waitingForResult) {
-        showError("Server timeout. Please try again.");
-        resetButton();
-      }
-    }, 15000);
-  });
-
-  // 🔥 REMOTE POLLING (FIXED VERSION)
-  setInterval(async () => {
-
-    try {
-      const res = await fetch("/check-trigger");
-      const data = await res.json();
-
-      if (data.trigger === true) {
-
-        console.log("📡 Remote trigger received");
-
-        // 🔥 FORCE RESET BEFORE TRIGGER
-        waitingForResult = false;
-        captureRunning = false;
-        captureBtn.disabled = false;
-
-        captureBtn.click();
-      }
-
-    } catch (e) {
-      console.error("Trigger check failed", e);
+    if (!res.ok) {
+      throw new Error(data.error || "Server error");
     }
 
-  }, 1000);
+  } catch (err) {
+    console.error("❌ Capture error:", err);
+    showError(err.message);
+    resetButton();
+  } finally {
+    captureRunning = false;
+  }
+}
 
-  // 🔥 SSE LISTENER
-  const evtSource = new EventSource("http://127.0.0.1:5000/api/latest-result-stream");
+// Button click
+captureBtn.addEventListener("click", async () => {
+  if (waitingForResult) return;
 
-  evtSource.onmessage = function(event) {
+  waitingForResult = true;
+  captureBtn.disabled = true;
+  captureBtn.textContent = "⏳ Processing...";
 
-    const d = JSON.parse(event.data);
+  await captureAndSend();
 
-    console.log("📡 New result received");
-
-    document.getElementById('age').textContent = d.age || 'N/A';
-    document.getElementById('gender').textContent = d.gender || 'N/A';
-    document.getElementById('race').textContent = d.race || 'N/A';
-    document.getElementById('weather').textContent = d.weather || 'N/A';
-    document.getElementById('lat').textContent = d.latitude || 'N/A';
-    document.getElementById('lon').textContent = d.longitude || 'N/A';
-
-    if (d.food_image) {
-      document.getElementById('foodImage').src = 'foods/' + d.food_image;
-    }
-
-    document.getElementById('flavorText').textContent = d.flavor_text || '';
-
-    // 🔓 Unlock ONLY when result arrives
+  setTimeout(() => {
     if (waitingForResult) {
+      showError("Server timeout. Please try again.");
       resetButton();
     }
-  };
+  }, 15000);
+});
+
+// WebSocket click trigger (this is the important part)
+window.addEventListener('capture-trigger', () => {
+  console.log("📡 WebSocket trigger received (custom event)");
+
+  waitingForResult = false;
+  captureRunning = false;
+  captureBtn.disabled = false;
+
+  captureBtn.click();
+});
+
+// SSE listener
+const evtSource = new EventSource("http://127.0.0.1:5000/api/latest-result-stream");
+
+evtSource.onmessage = function(event) {
+  const d = JSON.parse(event.data);
+
+  document.getElementById('age').textContent = d.age || 'N/A';
+  document.getElementById('gender').textContent = d.gender || 'N/A';
+  document.getElementById('race').textContent = d.race || 'N/A';
+  document.getElementById('weather').textContent = d.weather || 'N/A';
+  document.getElementById('lat').textContent = d.latitude || 'N/A';
+  document.getElementById('lon').textContent = d.longitude || 'N/A';
+
+  if (d.food_image) {
+    document.getElementById('foodImage').src = 'foods/' + d.food_image;
+  }
+
+  document.getElementById('flavorText').textContent = d.flavor_text || '';
+
+  if (waitingForResult) {
+    resetButton();
+  }
+};
 </script>
 
 </body>

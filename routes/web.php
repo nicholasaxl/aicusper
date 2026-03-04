@@ -49,9 +49,21 @@ Route::get('/remote', function () {
 require __DIR__.'/auth.php';
 
 
-// Cashier side trigger button
+// // Cashier side trigger button POLLING 
+// Route::post('/trigger-capture', function () {
+//     Cache::put('capture_trigger', true, 30); // valid for 30 sec
+//     return response()->json(['status' => 'triggered']);
+// });
+use App\Events\CaptureTriggered;
+
 Route::post('/trigger-capture', function () {
-    Cache::put('capture_trigger', true, 30); // valid for 30 sec
+
+    \Log::info('route hit');
+
+    event(new CaptureTriggered());
+
+    \Log::info('event dispatched');
+
     return response()->json(['status' => 'triggered']);
 });
 
