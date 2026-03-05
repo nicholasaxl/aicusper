@@ -43,8 +43,11 @@ Route::middleware('auth')->group(function () {
     Route::post('/product/{id}', [ProductController::class, 'update'])->name('product.update');
 
 });
-Route::get('/remote', function () {
+Route::get('/cashier', function () {
     return view('remote');
+});
+Route::get('/customer', function () {
+    return view('customer');
 });
 require __DIR__.'/auth.php';
 
