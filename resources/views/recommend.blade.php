@@ -121,7 +121,7 @@ const video = previewVideo;
 const captureBtn = document.getElementById("captureBtn");
 
 const API_RECOMMEND = "http://127.0.0.1:5000/recommend";
-const OUTLET_ID = 82;
+const OUTLET_ID = 2;
 
 function resetButton() {
   captureBtn.textContent = "📸 Capture Recommendation";
@@ -234,7 +234,7 @@ evtSource.onmessage = function(event) {
   document.getElementById('lon').textContent = d.longitude || 'N/A';
 
   if (d.food_image) {
-    document.getElementById('foodImage').src = 'foods/' + d.food_image;
+    document.getElementById('foodImage').src = '/storage/' + d.food_image;
   }
 
   document.getElementById('flavorText').textContent = d.flavor_text || '';
