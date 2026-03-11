@@ -235,26 +235,26 @@ const previewVideo = document.getElementById('previewVideo');
 const canvas = document.createElement('canvas');
 const video = previewVideo;
 
-const API_RECOMMEND = "http://127.0.0.1:5000/recommend";
+const API_RECOMMEND = "https://bsulteng-dev-pos.hcsidn.com:5000/recommend";
 const OUTLET_ID = 2;
 
 function showError(message){
-document.getElementById("flavorText").textContent = "⚠ " + message;
+    document.getElementById("flavorText").textContent = "⚠ " + message;
 }
 
 function resetState(){
-waitingForResult=false;
-captureRunning=false;
+    waitingForResult=false;
+    captureRunning=false;
 }
 
 /* CAMERA */
 
 navigator.mediaDevices.getUserMedia({video:true})
-.then(stream=>{
-previewVideo.srcObject=stream;
-video.srcObject=stream;
-})
-.catch(err=>alert("Camera access denied: "+err));
+    .then(stream=>{
+    previewVideo.srcObject=stream;
+    video.srcObject=stream;
+    })
+    .catch(err=>alert("Camera access denied: "+err));
 
 /* CAPTURE */
 
@@ -264,68 +264,67 @@ if(captureRunning) return;
 captureRunning=true;
 
 try{
+    const ctx = canvas.getContext('2d');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
 
-const ctx = canvas.getContext('2d');
-canvas.width = video.videoWidth;
-canvas.height = video.videoHeight;
+    ctx.drawImage(video,0,0);
 
-ctx.drawImage(video,0,0);
+    const blob = await new Promise((resolve,reject)=>{
+        canvas.toBlob(b=>{
+            if(b) resolve(b);
+            else reject(new Error("Failed to capture image"));
+        },"image/jpeg");
+    });
 
-const blob = await new Promise((resolve,reject)=>{
-canvas.toBlob(b=>{
-if(b) resolve(b);
-else reject(new Error("Failed to capture image"));
-},"image/jpeg");
-});
+    const position = await new Promise((resolve,reject)=>{
+    navigator.geolocation.getCurrentPosition(resolve,reject);
+    });
 
-const position = await new Promise((resolve,reject)=>{
-navigator.geolocation.getCurrentPosition(resolve,reject);
-});
+    let formData = new FormData();
+    formData.append("image",blob,"capture.jpg");
+    formData.append("outlet_id",OUTLET_ID);
+    formData.append("latitude",position.coords.latitude);
+    formData.append("longitude",position.coords.longitude);
 
-let formData = new FormData();
-formData.append("image",blob,"capture.jpg");
-formData.append("outlet_id",OUTLET_ID);
-formData.append("latitude",position.coords.latitude);
-formData.append("longitude",position.coords.longitude);
+    console.log("📤 Sending frame to Flask...");
 
-console.log("📤 Sending frame to Flask...");
+    const res = await fetch(API_RECOMMEND,{
+    method:"POST",
+    body:formData
+    });
 
-const res = await fetch(API_RECOMMEND,{
-method:"POST",
-body:formData
-});
+    const data = await res.json();
 
-const data = await res.json();
+    if(!res.ok){
+    throw new Error(data.error || "Server error");
+    }
 
-if(!res.ok){
-throw new Error(data.error || "Server error");
-}
+    }catch(err){
 
-}catch(err){
+    console.error("❌ Capture error:",err);
+    showError(err.message);
+    resetState();
 
-console.error("❌ Capture error:",err);
-showError(err.message);
-resetState();
+    }finally{
+    captureRunning=false;
+    }
 
-}finally{
-captureRunning=false;
-}
+    }
 
-}
+    /* WEBSOCKET TRIGGER */
 
-/* WEBSOCKET TRIGGER */
+    window.addEventListener('capture-trigger', async ()=>{
+    console.log("📡 WebSocket trigger received");
 
-window.addEventListener('capture-trigger', async ()=>{
-console.log("📡 WebSocket trigger received");
-
-waitingForResult=true;
-await captureAndSend();
+    waitingForResult=true;
+    await captureAndSend();
 
 });
 
 /* SSE LISTENER */
 
-const evtSource = new EventSource("http://127.0.0.1:5000/api/latest-result-stream");
+const evtSource = new EventSource("https://bsulteng-dev-pos.hcsidn.com:5000/api/latest-result-stream");
 
 evtSource.onmessage = function(event) {
 
