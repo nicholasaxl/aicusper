@@ -57,13 +57,14 @@ const frame = document.getElementById('frame');
 
 document.getElementById("remoteBtn").addEventListener("click", async () => {
 
-    // 1) trigger capture on Laravel
-    await fetch("/trigger-capture", {
+    // 1) trigger capture on Laravel (file-based)
+    await fetch("/file-trigger", {
         method: "POST",
         headers: {
             "X-CSRF-TOKEN": token,
             "Content-Type": "application/json"
-        }
+        },
+        body: JSON.stringify({})
     });
 
     // 2) after a short delay, refresh the image once

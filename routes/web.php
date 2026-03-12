@@ -79,3 +79,43 @@ Route::get('/check-trigger', function () {
 
     return response()->json(['trigger' => false]);
 });
+
+// 1️⃣ Remote page POST → create/update trigger file
+Route::post('/file-trigger', function (Request $request) {
+    Storage::disk('public')->put('trigger.txt', now()->timestamp);
+    return response()->json(['ok' => true]);
+});
+
+// 2️⃣ Camera page GET → check trigger
+Route::get('/file-trigger', function () {
+    if (!Storage::disk('public')->exists('trigger.txt')) {
+        return response()->json(['triggerTimestamp' => 0]);
+    }
+
+    $timestamp = (int) Storage::disk('public')->get('trigger.txt');
+    return response()->json(['triggerTimestamp' => $timestamp]);
+});
+
+Route::post('/sse-trigger', function (Request $request) {
+    // Save a new trigger in cache
+    $timestamp = now()->timestamp;
+    Cache::put('camera_trigger', $timestamp, 60); // keep for 60 seconds
+
+    return response()->json(['ok' => true, 'timestamp' => $timestamp]);
+});
+
+Route::get('/sse-stream', function () {
+    return response()->stream(function () {
+        while (true) {
+            $lastTrigger = Cache::get('camera_trigger', 0);
+            echo "data: " . json_encode(['triggerTimestamp' => $lastTrigger]) . "\n\n";
+            ob_flush();
+            flush();
+            sleep(1); // adjust interval if needed
+        }
+    }, 200, [
+        'Content-Type' => 'text/event-stream',
+        'Cache-Control' => 'no-cache',
+        'Connection' => 'keep-alive',
+    ]);
+});

@@ -314,13 +314,33 @@ try{
 
     /* WEBSOCKET TRIGGER */
 
-    window.addEventListener('capture-trigger', async ()=>{
-    console.log("📡 WebSocket trigger received");
+//     window.addEventListener('capture-trigger', async ()=>{
+//         console.log("📡 WebSocket trigger received");
 
-    waitingForResult=true;
-    await captureAndSend();
+//         waitingForResult=true;
+//         await captureAndSend();
 
-});
+//     }
+// );
+let lastTriggerTimestamp = 0;
+
+async function checkFileTrigger() {
+    try {
+        const res = await fetch("/file-trigger");
+        const data = await res.json();
+
+        if (data.triggerTimestamp > lastTriggerTimestamp) {
+            console.log("📡 File trigger received!");
+            lastTriggerTimestamp = data.triggerTimestamp;
+            captureAndSend(); // existing capture function
+        }
+    } catch (err) {
+        console.error("Error checking file trigger:", err);
+    }
+}
+
+// Poll every 1.5 seconds
+setInterval(checkFileTrigger, 1500);
 
 /* SSE LISTENER */
 
