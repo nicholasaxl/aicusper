@@ -15,7 +15,7 @@ Route::get('/', [RecommendationController::class, 'index']);
 Route::post('/recommend', [RecommendationController::class, 'recommend'])->name('recommend');
 Route::get('/api/latest-result', function () {
     try {
-        $response = Http::get('http://127.0.0.1:5000/latest_result.json');
+        $response = Http::get(env('FLASK_API_INTERNAL', 'http://aicusper-api:5000') . '/latest_result.json');
 
         if ($response->failed()) {
             return response()->json(['error' => 'API request failed.'], 500);

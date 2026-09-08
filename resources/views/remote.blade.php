@@ -44,7 +44,7 @@
 <body>
 
 <!-- frame for temp.jpg -->
-<img id="frame" src="https://bsulteng-dev-pos.hcsidn.com:5000/temp.jpg" alt="Latest Frame">
+<img id="frame" src="{{ env('FLASK_API_URL', 'http://localhost:5000') }}/temp.jpg" alt="Latest Frame">
 
 <!-- trigger -->
 <button id="remoteBtn">
@@ -69,7 +69,7 @@ document.getElementById("remoteBtn").addEventListener("click", async () => {
 
     // 2) after a short delay, refresh the image once
     setTimeout(() => {
-        frame.src = "https://bsulteng-dev-pos.hcsidn.com:5000/temp.jpg?cache=" + new Date().getTime();
+        frame.src = "{{ env('FLASK_API_URL', 'http://localhost:5000') }}/temp.jpg?cache=" + new Date().getTime();
     }, 3000); // wait 3 seconds (adjust if needed)
 });
 </script>

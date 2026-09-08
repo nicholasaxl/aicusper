@@ -21,3 +21,7 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# Docker image exports (build artifacts, too large for git)
+*.tar
+*.tar.gz

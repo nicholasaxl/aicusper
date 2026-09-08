@@ -10,7 +10,7 @@ class RecommendationController extends Controller
     {
         try {
             
-            $response = Http::get('http://127.0.0.1:5000/latest_result.json');
+            $response = Http::get(env('FLASK_API_INTERNAL', 'http://aicusper-api:5000') . '/latest_result.json');
 
             if ($response->failed()) {
                 $errorMessage = $response->json('error') ?? 'API request failed.';

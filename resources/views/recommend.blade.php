@@ -120,7 +120,7 @@ const canvas = document.createElement('canvas');
 const video = previewVideo;
 const captureBtn = document.getElementById("captureBtn");
 
-const API_RECOMMEND = "https://bsulteng-dev-pos.hcsidn.com:5000/recommend";
+const API_RECOMMEND = "{{ env('FLASK_API_URL', 'http://localhost:5000') }}/recommend";
 const OUTLET_ID = 2;
 
 function resetButton() {
@@ -221,7 +221,7 @@ window.addEventListener('capture-trigger', () => {
 });
 
 // SSE listener
-const evtSource = new EventSource("https://bsulteng-dev-pos.hcsidn.com:5000/api/latest-result-stream");
+const evtSource = new EventSource("{{ env('FLASK_API_URL', 'http://localhost:5000') }}/api/latest-result-stream");
 
 evtSource.onmessage = function(event) {
   const d = JSON.parse(event.data);
