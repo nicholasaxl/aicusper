@@ -1,3 +1,12 @@
+# Stage 1: Build frontend assets
+FROM node:20-alpine AS frontend
+WORKDIR /build
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+# Stage 2: Final PHP image
 FROM php:8.3-fpm
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -8,10 +17,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install pdo_pgsql pgsql mbstring zip gd bcmath
 
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
-    && rm -rf /var/lib/apt/lists/*
-
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www
@@ -19,14 +24,10 @@ WORKDIR /var/www
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --optimize-autoloader --no-scripts
 
-COPY package.json package-lock.json ./
-RUN npm ci
-
 COPY . .
+COPY --from=frontend /build/public/build public/build
 
-RUN composer dump-autoload --optimize --no-scripts \
-    && npm run build \
-    && rm -rf node_modules
+RUN composer dump-autoload --optimize --no-scripts
 
 RUN echo '<?php return [];' > bootstrap/cache/packages.php \
     && echo '<?php return [];' > bootstrap/cache/services.php

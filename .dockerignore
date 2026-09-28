@@ -11,3 +11,5 @@ storage/framework/views/*
 .vscode
 db_backup
 db_backup_sql_format.sql
+*.tar
+*.tar.gz

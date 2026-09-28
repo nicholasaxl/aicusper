@@ -300,6 +300,20 @@ try{
     throw new Error(data.error || "Server error");
     }
 
+    document.getElementById('age').textContent = data.age || 'N/A';
+    document.getElementById('gender').textContent = data.gender || 'N/A';
+    document.getElementById('race').textContent = data.race || 'N/A';
+    document.getElementById('weather').textContent = data.weather || 'N/A';
+    document.getElementById('lat').textContent = data.latitude || 'N/A';
+    document.getElementById('lon').textContent = data.longitude || 'N/A';
+    if (data.food_image) {
+        document.getElementById('foodImage').src = '/storage/' + data.food_image;
+    }
+    document.getElementById('foodTitle').textContent = data.recommended_food || "Recommended Food";
+    document.getElementById('foodPrice').textContent = data.price ? CURRENCY + " " + data.price : "";
+    document.getElementById('flavorText').textContent = data.flavor_text || '';
+    if (waitingForResult) { resetState(); }
+
     }catch(err){
 
     console.error("❌ Capture error:",err);

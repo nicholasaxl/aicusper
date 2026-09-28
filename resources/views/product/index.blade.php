@@ -117,14 +117,14 @@
                                     <!-- Name + Image -->
                                     <td class="px-4 py-2 border" colspan="2" x-data="{ open: false }">
                                         <div class="flex items-center gap-4">
-                                            <img src="{{ asset('storage/' . $item->image_path) }}" class="rounded" width="100px" @click="open = true">
+                                            <img src="{{ asset('storage/' . $item->image_path) }}" class="rounded object-cover flex-shrink-0" style="width:80px;height:80px;min-width:80px;" @click="open = true">
                                             <span class="font-medium text-left">
                                                 {{ $item->item_name }}
                                             </span>
                                         </div>
 
                                         <!-- Image Preview Modal -->
-                                        <div x-show="open"
+                                        <div x-show="open" x-cloak
                                              x-transition.opacity
                                              class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
                                              @click.self="open = false"
