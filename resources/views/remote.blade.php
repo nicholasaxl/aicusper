@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Remote Trigger</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
@@ -21,8 +22,10 @@
         #frame {
             border: 4px solid #f44336;
             border-radius: 12px;
-            width: 400px;
+            width: 100%;
+            max-width: 400px;
             height: 300px;
+            box-sizing: border-box;
             object-fit: cover;
             background: white;
         }
@@ -53,7 +56,8 @@
             border: 2px solid #ddd;
             border-radius: 12px;
             padding: 20px;
-            width: 400px;
+            width: 100%;
+            max-width: 400px;
             box-sizing: border-box;
         }
 
@@ -115,6 +119,23 @@
             line-height: 1.4;
         }
 
+        .dashboard-link {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            padding: 10px 18px;
+            font-size: 14px;
+            color: #333;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            text-decoration: none;
+        }
+
+        .dashboard-link:hover {
+            background: #eee;
+        }
+
         .status {
             margin-top: 8px;
             font-size: 13px;
@@ -123,6 +144,8 @@
     </style>
 </head>
 <body>
+
+<a class="dashboard-link" href="{{ route('dashboard') }}">&larr; Dashboard</a>
 
 <img id="frame" src="{{ env('FLASK_API_URL', 'http://localhost:5000') }}/temp.jpg" alt="Latest Frame">
 

@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Food Recommendation</title>
 
 <style>
@@ -236,7 +237,7 @@ const canvas = document.createElement('canvas');
 const video = previewVideo;
 
 const API_RECOMMEND = "{{ env('FLASK_API_URL', 'http://localhost:5000') }}/recommend";
-const OUTLET_ID = 2;
+const OUTLET_ID = {{ (int) $outletId }}; // the logged-in user's outlet
 
 function showError(message){
     document.getElementById("flavorText").textContent = "⚠ " + message;
@@ -281,9 +282,18 @@ try{
     navigator.geolocation.getCurrentPosition(resolve,reject);
     });
 
+    // The outlet's menu (with AI labels) comes from one flat table, not from joined POS tables
+    const menuRes = await fetch("/api/menu",{headers:{"Accept":"application/json"}});
+    const menuData = await menuRes.json();
+    if(!menuRes.ok){
+        throw new Error(menuData.error || "Could not load the menu");
+    }
+
     let formData = new FormData();
     formData.append("image",blob,"capture.jpg");
     formData.append("outlet_id",OUTLET_ID);
+    formData.append("merchant_id",menuData.merchant_id);
+    formData.append("menu",JSON.stringify(menuData.menu));
     formData.append("latitude",position.coords.latitude);
     formData.append("longitude",position.coords.longitude);
 
@@ -306,8 +316,8 @@ try{
     document.getElementById('weather').textContent = data.weather || 'N/A';
     document.getElementById('lat').textContent = data.latitude || 'N/A';
     document.getElementById('lon').textContent = data.longitude || 'N/A';
-    if (data.food_image) {
-        document.getElementById('foodImage').src = '/storage/' + data.food_image;
+    if (data.food_image_url) {
+        document.getElementById('foodImage').src = data.food_image_url;
     }
     document.getElementById('foodTitle').textContent = data.recommended_food || "Recommended Food";
     document.getElementById('foodPrice').textContent = data.price ? CURRENCY + " " + data.price : "";

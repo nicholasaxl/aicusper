@@ -15,11 +15,14 @@
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                         {{ __('Dashboard') }}
                     </x-nav-link>
-                </div>
-
-                <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                    <x-nav-link :href="route('product.index')" :active="request()->routeIs('product.index', 'product.create', 'product.edit')">
+                    <x-nav-link :href="route('product.index')" :active="request()->routeIs('product.index')">
                         {{ __('Products') }}
+                    </x-nav-link>
+                    <x-nav-link :href="route('customer')" :active="request()->routeIs('customer')">
+                        {{ __('Customer') }}
+                    </x-nav-link>
+                    <x-nav-link :href="route('cashier')" :active="request()->routeIs('cashier')">
+                        {{ __('Cashier') }}
                     </x-nav-link>
                 </div>
             </div>
@@ -76,8 +79,17 @@
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                 {{ __('Dashboard') }}
             </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('product.index')" :active="request()->routeIs('product.index')">
+                {{ __('Products') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('customer')" :active="request()->routeIs('customer')">
+                {{ __('Customer') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('cashier')" :active="request()->routeIs('cashier')">
+                {{ __('Cashier') }}
+            </x-responsive-nav-link>
         </div>
-        
+
 
         <!-- Responsive Settings Options -->
         <div class="pt-4 pb-1 border-t border-gray-200 dark:border-gray-600">

@@ -17,27 +17,85 @@
                         <div>
                             <h3 class="text-lg font-semibold">Product List</h3>
                             <p class="text-sm text-gray-500">
-                                List of product available to performed as selected on AI personalization.
+                                Menu items from the POS for your outlet, used for AI personalization.
                             </p>
                         </div>
 
-                        <a href="{{ route('product.create') }}">
-                            <x-primary-button>
-                                {{ __('Add Product') }}
-                            </x-primary-button>
-                        </a>
+                        @if ($outlet)
+                            <div class="text-right text-sm">
+                                <div class="font-medium text-gray-800">{{ $outlet->name }}</div>
+                                <div class="text-gray-500">Outlet #{{ $outlet->id }} &middot; Merchant #{{ $outlet->merchant_id }}</div>
+                            </div>
+                        @endif
                     </div>
+
+                    @if (session('success'))
+                        <div class="mb-4 rounded border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+                            {{ session('success') }}
+                        </div>
+                    @endif
+                    @if (session('error'))
+                        <div class="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                            {{ session('error') }}
+                        </div>
+                    @endif
+
+                    @unless ($outlet)
+                        <div class="mb-6 rounded border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+                            Your account is not attached to an outlet yet, so there is no menu to show.
+                        </div>
+                    @endunless
+
+                    @if ($outlet)
+                    <!-- Step 1: pull the outlet's menu from the POS into the unified table -->
+                    <form method="POST" action="{{ route('product.sync') }}"
+                          x-data="{ busy: false }" @submit="busy = true"
+                          class="mb-3 flex flex-wrap items-center gap-3 rounded border border-gray-200 bg-gray-50 px-4 py-3">
+                        @csrf
+                        <div class="text-sm text-gray-800">
+                            <span class="font-semibold">Menu sync</span>
+                            <span class="text-gray-600">&mdash; pulls new and changed items for this outlet from the POS.</span>
+                            <span class="ml-1 text-xs text-gray-500">
+                                Last synced: {{ $lastSynced ? \Illuminate\Support\Carbon::parse($lastSynced)->diffForHumans() : 'never' }}
+                            </span>
+                        </div>
+                        <x-secondary-button type="submit" class="ml-auto" x-bind:disabled="busy">
+                            <span x-show="!busy">Sync menu</span>
+                            <span x-show="busy" x-cloak>Syncing&hellip;</span>
+                        </x-secondary-button>
+                    </form>
+
+                    <!-- Step 2: AI labelling for the outlet the user is logged into -->
+                    <form method="POST" action="{{ route('product.labels') }}"
+                          x-data="{ busy: false }" @submit="busy = true"
+                          class="mb-6 flex flex-wrap items-center gap-3 rounded border border-indigo-100 bg-indigo-50 px-4 py-3">
+                        @csrf
+                        <div class="text-sm text-indigo-900">
+                            <span class="font-semibold">AI menu labelling</span>
+                            <span class="text-indigo-700">&mdash; tags each active product (course, cuisine, flavor, weather fit) so recommendations match the customer better.</span>
+                        </div>
+                        <label class="ml-auto flex items-center gap-1 text-sm text-gray-700">
+                            <input type="checkbox" name="force" value="1" class="rounded border-gray-300">
+                            Re-label all
+                        </label>
+                        <x-primary-button x-bind:disabled="busy">
+                            <span x-show="!busy">Label menu</span>
+                            <span x-show="busy" x-cloak>Labelling&hellip; this can take a minute</span>
+                        </x-primary-button>
+                    </form>
+                    @endif
 
                     <!-- Table -->
                     <div class="overflow-x-auto">
-                        <table class="table-fixed min-w-[900px] w-full border border-gray-200 whitespace-nowrap">
+                        <table class="table-fixed min-w-[1100px] w-full border border-gray-200 whitespace-nowrap">
                             <colgroup>
-                                <col style="width: 40%">
+                                <col style="width: 30%">
                                 <col style="width: 0%">
-                                <col style="width: 15%">
-                                <col style="width: 25%">
-                                <col style="width: 10%">
-                                <col style="width: 10%">
+                                <col style="width: 12%">
+                                <col style="width: 18%">
+                                <col style="width: 26%">
+                                <col style="width: 7%">
+                                <col style="width: 7%">
                             </colgroup>
                             
                             <thead class="bg-gray-100">
@@ -47,8 +105,9 @@
                                     <th class="px-4 py-2 border text-start" colspan="2">Name</th>
                                     <th class="px-4 py-2 border text-start">Price</th>
                                     <th class="px-4 py-2 border text-start">Description</th>
+                                    <th class="px-4 py-2 border text-start">AI Labels</th>
                                     <th class="px-4 py-2 border text-center">Active</th>
-                                    <th class="px-4 py-2 border text-center">Action</th>
+                                    <th class="px-4 py-2 border"></th>
                                 </tr>
                             
                                 <!-- Filter Row -->
@@ -82,6 +141,9 @@
                                                    class="w-full text-sm rounded border-gray-300">
                                         </th>
                             
+                                        <!-- AI Labels (not searchable) -->
+                                        <th class="px-3 py-2 border"></th>
+
                                         <!-- Active -->
                                         <th class="px-3 py-2 border">
                                             <select name="active"
@@ -117,10 +179,18 @@
                                     <!-- Name + Image -->
                                     <td class="px-4 py-2 border" colspan="2" x-data="{ open: false }">
                                         <div class="flex items-center gap-4">
-                                            <img src="{{ asset('storage/' . $item->image_path) }}" class="rounded object-cover flex-shrink-0" style="width:80px;height:80px;min-width:80px;" @click="open = true">
-                                            <span class="font-medium text-left">
-                                                {{ $item->item_name }}
-                                            </span>
+                                            @if ($item->image_path)
+                                                <img src="{{ asset('storage/' . $item->image_path) }}" class="rounded object-cover flex-shrink-0" style="width:80px;height:80px;min-width:80px;" @click="open = true">
+                                            @else
+                                                <div class="flex-shrink-0 rounded bg-gray-100" style="width:80px;height:80px;min-width:80px;"></div>
+                                            @endif
+                                            <div class="text-left">
+                                                <div class="font-medium">{{ $item->name }}</div>
+                                                @if ($item->category)
+                                                    <div class="text-xs text-gray-500">{{ $item->category }}</div>
+                                                @endif
+                                                <div class="text-xs text-gray-400">item #{{ $item->item_id }}</div>
+                                            </div>
                                         </div>
 
                                         <!-- Image Preview Modal -->
@@ -130,39 +200,69 @@
                                              @click.self="open = false"
                                              @keydown.escape.window="open = false">
 
-                                            <div class="bg-white rounded-lg shadow-xl p-4 max-w-2xl w-full mx-4">
-                                                <img src="{{ asset('storage/' . $item->image_path) }}"
-                                                     class="w-full max-h-[70vh] object-contain rounded">
-                                            </div>
+                                            @if ($item->image_path)
+                                                <div class="bg-white rounded-lg shadow-xl p-4 max-w-2xl w-full mx-4">
+                                                    <img src="{{ asset('storage/' . $item->image_path) }}"
+                                                         class="w-full max-h-[70vh] object-contain rounded">
+                                                </div>
+                                            @endif
                                         </div>
 
                                     </td>
 
                                     <td class="px-4 py-2 border">{{ env('CURRENCY').number_format($item->price) }}</td>
-                                    <td class="px-4 py-2 border truncate-text ">{{ $item->description }}</td>
-                                    <td class="px-4 py-2 border text-center"> {{ $item->active == 'active' ? '🟢' : '🔴' }} </td>
+                                    <td class="px-4 py-2 border truncate-text text-gray-400">{{ $item->description ?: '—' }}</td>
 
-                                    <td class="px-4 py-2 border text-center space-x-2">                                       
-                                        <a href="{{ route('product.edit', $item->inventory_id) }}"
-                                            class="inline-flex items-center justify-center p-2 text-gray-600 hover:text-indigo-600 hover:bg-gray-100 rounded">
-                                             <!-- Pencil Icon (Heroicons style) -->
-                                             <svg xmlns="http://www.w3.org/2000/svg"
-                                                  class="w-5 h-5"
-                                                  fill="none"
-                                                  viewBox="0 0 24 24"
-                                                  stroke="currentColor">
-                                                 <path stroke-linecap="round"
-                                                       stroke-linejoin="round"
-                                                       stroke-width="2"
-                                                       d="M11 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2v-5M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                                             </svg>
-                                         </a>
-
+                                    <!-- AI Labels -->
+                                    <td class="px-4 py-2 border whitespace-normal">
+                                        @php
+                                            $l = $item->labels;
+                                            $chips = [];
+                                            if ($l) {
+                                                foreach (['course', 'cuisine', 'temperature', 'richness'] as $key) {
+                                                    if (!empty($l[$key]) && $l[$key] !== 'unknown') {
+                                                        $chips[] = [$key, str_replace('_', ' ', $l[$key])];
+                                                    }
+                                                }
+                                                foreach (($l['flavor'] ?? []) as $flavor) {
+                                                    $chips[] = ['flavor', $flavor];
+                                                }
+                                                foreach (($l['weather_fit'] ?? []) as $weather) {
+                                                    if ($weather !== 'any') {
+                                                        $chips[] = ['weather', $weather . ' day'];
+                                                    }
+                                                }
+                                            }
+                                            $chipClass = [
+                                                'course' => 'bg-indigo-100 text-indigo-800',
+                                                'cuisine' => 'bg-purple-100 text-purple-800',
+                                                'temperature' => 'bg-sky-100 text-sky-800',
+                                                'richness' => 'bg-gray-100 text-gray-700',
+                                                'flavor' => 'bg-orange-100 text-orange-800',
+                                                'weather' => 'bg-teal-100 text-teal-800',
+                                            ];
+                                        @endphp
+                                        @if ($l)
+                                            <div class="flex flex-wrap gap-1" title="{{ $l['summary_en'] ?? '' }}">
+                                                @foreach ($chips as [$type, $text])
+                                                    <span class="rounded-full px-2 py-0.5 text-xs {{ $chipClass[$type] }}">{{ $text }}</span>
+                                                @endforeach
+                                            </div>
+                                            @if (!empty($l['summary_en']))
+                                                <p class="mt-1 text-xs text-gray-500">{{ $l['summary_en'] }}</p>
+                                            @endif
+                                        @else
+                                            <span class="text-xs text-gray-400">Not labelled</span>
+                                        @endif
                                     </td>
+
+                                    <td class="px-4 py-2 border text-center"> {{ $item->is_active ? '🟢' : '🔴' }} </td>
+
+                                    <td class="px-4 py-2 border"></td>
                                 </tr>
                                 @empty
                                 <tr>
-                                    <td colspan="6" class="py-6 text-center text-gray-500">
+                                    <td colspan="7" class="py-6 text-center text-gray-500">
                                         No products found
                                     </td>
                                 </tr>

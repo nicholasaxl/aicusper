@@ -11,7 +11,8 @@ use Illuminate\Support\Facades\Cache;
     return view('welcome');
 }); */
 
-Route::get('/', [RecommendationController::class, 'index']);
+// the old public webcam page is retired: / goes to the dashboard (which asks for a login first)
+Route::get('/', fn () => redirect()->route('dashboard'));
 Route::post('/recommend', [RecommendationController::class, 'recommend'])->name('recommend');
 Route::get('/api/latest-result', function () {
     try {
@@ -27,8 +28,19 @@ Route::get('/api/latest-result', function () {
     }
 });
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
+Route::get('/dashboard', function (Request $request) {
+    $outlet = $request->user()->outlet_id
+        ? \Illuminate\Support\Facades\DB::table('outlets')->where('id', $request->user()->outlet_id)->first(['id', 'merchant_id', 'name'])
+        : null;
+
+    $menu = fn () => \App\Models\UnifiedInventory::where('outlet_id', $outlet->id);
+
+    return view('dashboard', [
+        'outlet'        => $outlet,
+        'activeCount'   => $outlet ? $menu()->where('is_active', true)->count() : null,
+        'labelledCount' => $outlet ? $menu()->where('is_active', true)->whereNotNull('labels')->count() : null,
+        'lastSynced'    => $outlet ? $menu()->max('synced_at') : null,
+    ]);
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
@@ -37,18 +49,19 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     Route::get('/product', [ProductController::class, 'index'])->name('product.index');
-    Route::post('/product', [ProductController::class, 'store'])->name('product.store');
-    Route::get('/product/create', [ProductController::class, 'create'])->name('product.create');
-    Route::get('/product/{id}', [ProductController::class, 'edit'])->name('product.edit');
-    Route::post('/product/{id}', [ProductController::class, 'update'])->name('product.update');
+    Route::post('/product/sync', [ProductController::class, 'syncMenu'])->name('product.sync');
+    Route::post('/product/labels', [ProductController::class, 'generateLabels'])->name('product.labels');
+    // the recommender's menu: active rows of the user's outlet from unified_inventory_table
+    Route::get('/api/menu', [ProductController::class, 'menu'])->name('api.menu');
 
+    // customer display: needs a login so the outlet is the logged-in user's outlet
+    Route::get('/customer', function () {
+        return view('customer', ['outletId' => auth()->user()->outlet_id]);
+    })->name('customer');
 });
 Route::get('/cashier', function () {
     return view('remote');
-});
-Route::get('/customer', function () {
-    return view('customer');
-});
+})->name('cashier');
 require __DIR__.'/auth.php';
 
 

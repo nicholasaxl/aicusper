@@ -4,6 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * One row per menu item per outlet: a flat copy of the POS menu (items, item_outlet_map,
+ * categories, images) plus the AI labels. Filled by ProductController::syncMenu().
+ */
 class UnifiedInventory extends Model
 {
     protected $table = 'unified_inventory_table';
@@ -13,16 +17,23 @@ class UnifiedInventory extends Model
     public $timestamps = false;
 
     protected $fillable = [
+        'merchant_id',
         'outlet_id',
-        'outlet_name',
-        'item_name',
-        'image_path',
-        'active',
-        'price',
+        'item_id',
+        'name',
+        'category',
         'description',
+        'price',
+        'image_path',
+        'is_active',
+        'labels',
+        'synced_at',
     ];
 
     protected $casts = [
-        'price' => 'decimal:2',
+        'price'     => 'decimal:2',
+        'is_active' => 'boolean',
+        'labels'    => 'array',
+        'synced_at' => 'datetime',
     ];
 }
